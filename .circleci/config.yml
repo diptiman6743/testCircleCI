@@ -31,3 +31,5 @@ jobs:
       # run full testing 
 
       - run: mkdir -p $CIRCLE_TEST_REPORTS/munit/
+      - run: find . -type f -regex ".*/target/surefire-reports/.*xml" -exec cp {} $CIRCLE_TEST_REPORTS/munit/ \;
+      - run: find . -type f -regex ".*/target/munit-reports/coverage/.*html" -exec cp {} $CIRCLE_TEST_REPORTS/munit/ \;
