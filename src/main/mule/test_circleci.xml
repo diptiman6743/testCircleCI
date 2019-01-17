@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="61c579f8-13a5-467a-bd96-7c7947be12aa" >
+		<http:listener-connection host="0.0.0.0" port="9999" />
+	</http:listener-config>
+	<flow name="test_circleciFlow" doc:id="cf90f1f6-ed6c-4217-bf73-31195ab659e2" >
+		<http:listener doc:name="Listener" doc:id="310cc992-99d3-477d-8630-bb91150c4906" config-ref="HTTP_Listener_config" path="/testCircleCI"/>
+		<set-variable value="#[attributes.queryParams.sequenceNo]" doc:name="Set Variable" doc:id="5cec8fe9-b282-422f-bc89-21ec96ba4da5" variableName="sequenceNo"/>
+		<choice doc:name="Choice" doc:id="03112bd3-0e44-49c3-938f-80cd62eb7b1f" >
+			<when expression="#[vars.sequenceNo=='1']">
+				<logger level="INFO" doc:name="Logger" doc:id="3c930084-8168-4700-af08-31fb776716c5" message="pass"/>
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Logger" doc:id="a5750873-01f9-4912-8c19-8a1a291e9201" message="failed"/>
+			</otherwise>
+		</choice>
+	</flow>
+</mule>
