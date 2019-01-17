@@ -8,10 +8,16 @@
 		http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
 		http://www.mulesoft.org/schema/mule/munit-tools  http://www.mulesoft.org/schema/mule/munit-tools/current/mule-munit-tools.xsd">
 	<munit:config name="test_circleci-test-suite.xml" />
-	<munit:test name="test_circleci-test-suite-test_circleciFlowTest" description="Test" doc:id="b834844a-d138-4af0-be36-bfe935f97e5a" >
+	<munit:test name="test_circleci-test-suite-test_circleciSub_FlowTest" description="Test" doc:id="91612678-5715-4e6c-8e7a-56077cfb8639" >
 		<munit:execution >
-			<flow-ref doc:name="Flow-ref to test_circleciFlow" doc:id="54b228de-cbf3-439a-ad46-36103259f208" name="test_circleciFlow"/>
+			<munit:set-event doc:name="Set Event" doc:id="55250844-e796-4dc9-bc18-167aa76dcef8" >
+				<munit:payload value="1" />
+			</munit:set-event>
+			<flow-ref doc:name="Flow-ref to test_circleciSub_Flow" doc:id="3ff4d180-bbc4-4411-9234-b9990462dbbe" name="test_circleciSub_Flow"/>
 		</munit:execution>
+		<munit:validation>
+			<munit-tools:assert-that doc:name="Assert that" doc:id="5f26c177-fb42-4292-9173-a288fb5b8e4e" expression="#[payload]" is="#[MunitTools::equalTo('1')]" message="oops!"/>
+		</munit:validation>
 	</munit:test>
 
 
