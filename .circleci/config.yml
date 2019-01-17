@@ -1,0 +1,118 @@
+version: 2
+jobs:
+  build:
+    working_directory: ~/ConstellationBrands/integ-powerreviews
+    parallelism: 1
+    shell: /bin/bash --login
+
+    environment:
+      # Customize the JVM maximum heap limit
+      _JAVA_OPTIONS: -Xms128m -Xmx512m
+      CIRCLE_ARTIFACTS: /tmp/circleci-artifacts
+      CIRCLE_TEST_REPORTS: /tmp/circleci-test-results
+
+    docker:
+      # specify the version you desire here
+      - image: circleci/build-image:ubuntu-14.04-XXL-upstart-1189-5614f37
+
+    steps:
+      # Machine Setup
+      - checkout
+      - run:
+          name: Creating temp directories
+          command: mkdir -p $CIRCLE_ARTIFACTS $CIRCLE_TEST_REPORTS
+      - run:
+          name: Update java alternatives
+          working_directory: ~/ConstellationBrands/integ-powerreviews
+          command: sudo update-alternatives --set java /usr/lib/jvm/java-8-openjdk-amd64/jre/bin/java; sudo update-alternatives --set javac /usr/lib/jvm/java-8-openjdk-amd64/bin/javac; echo -e "export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64" >> $BASH_ENV
+
+      # Download and cache dependencies
+      - restore_cache:
+          keys:
+          - integ-powerreviews-{{ checksum "pom.xml" }}
+          # fallback to using the latest cache if no exact match is found
+          - integ-powerreviews-
+
+      # Update dependencies  
+      - run: mvn --fail-never dependency:go-offline -s settings.xml || true
+
+      - save_cache:
+          paths:
+            - ~/.m2
+          key: integ-powerreviews-{{ checksum "pom.xml" }}
+        
+      # run full testing
+      - run: mvn clean verify -s settings.xml -Dkey=$key
+
+      - run: mkdir -p $CIRCLE_TEST_REPORTS/munit/
+      - run: mkdir -p $CIRCLE_TEST_REPORTS/int/
+      - run: find . -type f -regex ".*/target/surefire-reports/.*xml" -exec cp {} $CIRCLE_TEST_REPORTS/munit/ \;
+      - run: find . -type f -regex ".*/target/munit-reports/coverage/.*html" -exec cp {} $CIRCLE_TEST_REPORTS/munit/ \;
+      - run: find . -type f -regex ".*/target/failsafe-reports/.*xml" -exec cp {} $CIRCLE_TEST_REPORTS/int/ \;
+
+  deploy_dev:
+    machine:
+      enabled: true
+
+    working_directory: ~/ConstellationBrands/integ-powerreviews
+
+    steps:
+      - checkout
+      - run: sed -i "s/\${LE_TOKEN}/$DEV_LE_TOKEN/" src/main/resources/log4j2.xml;
+      - run: mvn clean package -s settings.xml -Dmule.env=dev -DskipTests
+      - run: mvn flyway:migrate -s settings.xml -Dflyway.outOfOrder=false -Dflyway.user=$dev_db_user -Dflyway.password=$dev_db_password -Dflyway.url=jdbc:postgresql://$dev_db_host:$dev_db_port/$dev_db_database?sslmode=require -Dflyway.schemas=powerreviews
+      - run: mvn mule:deploy -Denvironment=Development -DapplicationName=integ-powerreviews-dev -DworkerType=Micro -s settings.xml -Dmule.env=dev -DskipTests
+
+  deploy_test:
+    machine:
+      enabled: true
+
+    working_directory: ~/ConstellationBrands/integ-powerreviews
+
+    steps:
+      - checkout
+      - run: sed -i "s/\${LE_TOKEN}/$TEST_LE_TOKEN/" src/main/resources/log4j2.xml;
+      - run: mvn clean package -s settings.xml -Dmule.env=test -DskipTests
+      - run: mvn flyway:migrate -s settings.xml -Dflyway.outOfOrder=false -Dflyway.user=$test_db_user -Dflyway.password=$test_db_password -Dflyway.url=jdbc:postgresql://$test_db_host:$test_db_port/$test_db_database?sslmode=require -Dflyway.schemas=powerreviews
+      - run: mvn mule:deploy -Denvironment=Test -DapplicationName=integ-powerreviews-test -DworkerType=Micro -s settings.xml -Dmule.env=test -DskipTests
+      
+  deploy_master:
+    machine:
+      enabled: true
+
+    working_directory: ~/ConstellationBrands/integ-powerreviews
+
+    steps:
+      - checkout
+      - run: sed -i "s/\${LE_TOKEN}/$PROD_LE_TOKEN/" src/main/resources/log4j2.xml;
+      - run: mvn clean package -s settings.xml -Dmule.env=prod -DskipTests
+      - run: mvn flyway:migrate -s settings.xml -Dflyway.outOfOrder=false -Dflyway.user=$prod_db_user -Dflyway.password=$prod_db_password -Dflyway.url=jdbc:postgresql://$prod_db_host:$prod_db_port/$prod_db_database?sslmode=require -Dflyway.schemas=powerreviews
+      - run: mvn mule:deploy -Denvironment=Production -DapplicationName=integ-powerreviews-prod -DworkerType=Micro -s settings.xml -Dmule.env=prod -DskipTests
+
+workflows:
+  version: 2
+  build_and_deploy:
+    jobs:
+      - build:
+          context: mule-api
+      - deploy_dev:
+          context: mule-api
+          requires:
+          - build
+          filters:
+            branches:
+              only: develop
+      - deploy_test:
+          context: mule-api
+          requires:
+          - build
+          filters:
+            branches:
+              only: test
+      - deploy_master:
+          context: mule-api
+          requires:
+          - build
+          filters:
+            branches:
+              only: master
